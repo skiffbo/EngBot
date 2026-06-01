@@ -3,9 +3,10 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getDailyLesson } from "./lib/dailyLesson.js";
+import { getDailyLesson } from "../lib/dailyLesson.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicRoot = path.join(__dirname, "..");
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "127.0.0.1";
 
@@ -49,7 +50,7 @@ async function serveStatic(urlPath, response) {
     .normalize(decodeURIComponent(urlPath))
     .replace(/^(\.\.[/\\])+/, "")
     .replace(/^[/\\]/, "");
-  const filePath = path.join(__dirname, safePath || "index.html");
+  const filePath = path.join(publicRoot, safePath || "index.html");
   const resolved = filePath.endsWith(path.sep) ? path.join(filePath, "index.html") : filePath;
   const fileStat = await stat(resolved).catch(() => null);
 
