@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    {
+      "source": "/daily-lesson.json",
+      "destination": "/api/daily-lesson"
+    }
+  ],
+  "functions": {
+    "api/daily-lesson.js": {
+      "maxDuration": 20
+    }
+  }
+}

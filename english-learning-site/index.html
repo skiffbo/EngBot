@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>初二英语每日阅读</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%232f6748'/%3E%3Cpath d='M14 18h17c5 0 9 4 9 9v21H23c-5 0-9-4-9-9V18Z' fill='%23fffaf0'/%3E%3Cpath d='M33 18h17v21c0 5-4 9-9 9H33V18Z' fill='%23f0dfc4'/%3E%3Cpath d='M43 14v18l-5-4-5 4V14h10Z' fill='%23a84b38'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260601" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Daily English Studio</p>
+          <h1>初二英语阅读与语法练习</h1>
+        </div>
+        <div class="today-card" aria-live="polite">
+          <span id="weekdayLabel">读取日期中</span>
+          <strong id="sourceLabel">今日选文</strong>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="lesson-rail" aria-label="学习流程">
+          <div class="book-visual" aria-hidden="true">
+            <div class="book-page left-page"></div>
+            <div class="book-page right-page"></div>
+            <div class="bookmark"></div>
+          </div>
+          <ol class="steps" id="stepList">
+            <li class="active">读英文段落</li>
+            <li>输入生词</li>
+            <li>学习单词卡</li>
+            <li>看繁中翻译</li>
+            <li>拆解句子语法</li>
+            <li>抄写并朗读</li>
+            <li>用生词造句</li>
+            <li>检查与订正</li>
+          </ol>
+          <button class="ghost-button" id="newLessonButton" type="button">
+            <span aria-hidden="true">↻</span>
+            换一篇
+          </button>
+          <section class="record-panel" aria-live="polite">
+            <p class="section-kicker">Notebook</p>
+            <h3>学习记录</h3>
+            <p id="recordSummary">还没有保存记录。</p>
+            <button class="quiet-button" id="clearRecordsButton" type="button">清除记录</button>
+          </section>
+        </aside>
+
+        <section class="lesson-stage" aria-labelledby="articleTitle">
+          <div class="source-strip">
+            <div>
+              <span id="routeNote">正在按星期选择材料</span>
+              <h2 id="articleTitle">加载阅读材料</h2>
+            </div>
+            <a id="sourceLink" href="#" target="_blank" rel="noreferrer">来源线索</a>
+          </div>
+
+          <article class="reading-panel">
+            <p id="articleText" class="article-text"></p>
+            <div class="article-tools">
+              <button class="primary-button" id="readArticleButton" type="button">
+                <span aria-hidden="true">▶</span>
+                朗读英文
+              </button>
+              <span id="wordCount" class="count-badge">0 words</span>
+              <button class="quiet-button" id="printButton" type="button">打印学习单</button>
+            </div>
+          </article>
+
+          <section class="input-panel" aria-labelledby="unknownTitle">
+            <div>
+              <p class="section-kicker">Step 2</p>
+              <h3 id="unknownTitle">把看不懂的生词输入在这里</h3>
+            </div>
+            <textarea id="wordInput" rows="4" placeholder="例如：outbreak, protective, isolation"></textarea>
+            <div class="button-row">
+              <button class="primary-button" id="buildCardsButton" type="button">
+                <span aria-hidden="true">✓</span>
+                生成学习内容
+              </button>
+              <button class="quiet-button" id="clearButton" type="button">清空</button>
+            </div>
+          </section>
+
+          <section id="studyContent" class="study-content hidden" aria-live="polite">
+            <div class="section-heading">
+              <p class="section-kicker">Step 3</p>
+              <h3>生词卡</h3>
+              <p>请先朗读例句，再把生词、音标和一个例句抄在纸上。</p>
+            </div>
+            <div id="vocabCards" class="vocab-grid"></div>
+
+            <div class="translation-grid">
+              <section class="translation-panel">
+                <p class="section-kicker">Step 4</p>
+                <h3>英文原文</h3>
+                <p id="englishCopy"></p>
+              </section>
+              <section class="translation-panel chinese">
+                <p class="section-kicker">繁體中文</p>
+                <h3>中文翻譯</h3>
+                <p id="chineseTranslation"></p>
+              </section>
+            </div>
+
+            <section class="sentence-compare-panel" aria-labelledby="sentenceCompareTitle">
+              <div class="section-heading">
+                <p class="section-kicker">Sentence Pair</p>
+                <h3 id="sentenceCompareTitle">逐句英中对照</h3>
+                <p>先读英文，再看中文确认意思，不要先依赖翻译。</p>
+              </div>
+              <div id="sentencePairs" class="sentence-pairs"></div>
+            </section>
+
+            <section class="grammar-panel" aria-labelledby="grammarTitle">
+              <div class="section-heading">
+                <p class="section-kicker">Step 5</p>
+                <h3 id="grammarTitle">一句一句拆解语法</h3>
+                <p>请把公式读出来，再对照句子找 S、V、O、C 和状语。</p>
+              </div>
+              <dl class="grammar-legend" aria-label="语法缩写速查">
+                <div><dt>S</dt><dd>主词 Subject</dd></div>
+                <div><dt>Vt</dt><dd>及物动词 Transitive Verb</dd></div>
+                <div><dt>Vi</dt><dd>不及物动词 Intransitive Verb</dd></div>
+                <div><dt>O</dt><dd>宾词 Object</dd></div>
+                <div><dt>C</dt><dd>补语 Complement</dd></div>
+                <div><dt>Adv</dt><dd>状语 Adverbial</dd></div>
+              </dl>
+              <div id="grammarList" class="grammar-list"></div>
+            </section>
+
+            <section class="copy-panel" aria-labelledby="copyTitle">
+              <div>
+                <p class="section-kicker">Step 6</p>
+                <h3 id="copyTitle">抄写与朗读确认</h3>
+              </div>
+              <label><input type="checkbox" id="copyCheck" /> 我已经把英文段落抄写在纸上。</label>
+              <label><input type="checkbox" id="readCheck" /> 我已经朗读英文段落至少两遍。</label>
+              <p id="copyStatus" class="status-line">完成两项后，再进入造句练习。</p>
+            </section>
+
+            <section class="sentence-panel" aria-labelledby="challengeTitle">
+              <div class="challenge-head">
+                <div>
+                  <p class="section-kicker">Step 7</p>
+                  <h3 id="challengeTitle">随机生词造句</h3>
+                </div>
+                <button class="quiet-button" id="rerollWordButton" type="button">换一个词</button>
+              </div>
+              <p class="challenge-word">今天抽到：<strong id="challengeWord">-</strong></p>
+              <textarea id="sentenceInput" rows="5" placeholder="请用抽到的单词造 3 句，每句一行。"></textarea>
+              <button class="primary-button" id="checkSentencesButton" type="button">
+                <span aria-hidden="true">✓</span>
+                检查造句
+              </button>
+              <div id="sentenceFeedback" class="feedback-box" aria-live="polite"></div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js?v=20260601"></script>
+  </body>
+</html>

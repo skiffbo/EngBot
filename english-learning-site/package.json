@@ -1,0 +1,21 @@
+{
+  "name": "daily-english-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "smoke": "node scripts/smoke-test.js"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "cheerio": "^1.0.0",
+    "fast-xml-parser": "^4.5.0",
+    "jsdom": "^24.1.1",
+    "pdf-parse": "^1.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
