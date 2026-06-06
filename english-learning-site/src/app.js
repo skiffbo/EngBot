@@ -728,6 +728,7 @@ const state = {
   lesson: null,
   enteredWords: [],
   challengeWord: "",
+  quizQuestions: [],
   remoteStatus: "idle"
 };
 
@@ -741,7 +742,6 @@ const els = {
   sourceLink: document.querySelector("#sourceLink"),
   articleText: document.querySelector("#articleText"),
   wordCount: document.querySelector("#wordCount"),
-  readArticleButton: document.querySelector("#readArticleButton"),
   printButton: document.querySelector("#printButton"),
   newLessonButton: document.querySelector("#newLessonButton"),
   recordSummary: document.querySelector("#recordSummary"),
@@ -751,10 +751,9 @@ const els = {
   clearButton: document.querySelector("#clearButton"),
   studyContent: document.querySelector("#studyContent"),
   vocabCards: document.querySelector("#vocabCards"),
-  englishCopy: document.querySelector("#englishCopy"),
-  chineseTranslation: document.querySelector("#chineseTranslation"),
-  sentencePairs: document.querySelector("#sentencePairs"),
-  grammarList: document.querySelector("#grammarList"),
+  sentenceStudyList: document.querySelector("#sentenceStudyList"),
+  quizList: document.querySelector("#quizList"),
+  quizFeedback: document.querySelector("#quizFeedback"),
   copyCheck: document.querySelector("#copyCheck"),
   readCheck: document.querySelector("#readCheck"),
   copyStatus: document.querySelector("#copyStatus"),
@@ -846,15 +845,6 @@ function getWordsFromInput() {
 
 function countWords(text) {
   return text.split(/\s+/).filter(Boolean).length;
-}
-
-function speak(text) {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.86;
-  window.speechSynthesis.speak(utterance);
 }
 
 function updateSteps(maxIndex) {
@@ -972,6 +962,9 @@ async function renderLesson(options = {}) {
   els.readCheck.checked = false;
   els.sentenceFeedback.classList.remove("show");
   els.sentenceFeedback.innerHTML = "";
+  els.quizFeedback.classList.remove("show");
+  els.quizFeedback.innerHTML = "";
+  els.quizList.innerHTML = "";
   updateCopyStatus();
   updateSteps(0);
   renderRecords();
@@ -984,8 +977,7 @@ function getVocabEntry(word) {
       pos: "word",
       meaning: "這個詞尚未收入本頁詞庫。請先根據上下文猜意思，再查權威詞典確認。",
       examples: [
-        `I found the word "${word}" in today's reading passage.`,
-        `I will write "${word}" in my vocabulary notebook.`
+        `I found the word "${word}" in today's reading passage.`
       ]
     }
   );
@@ -996,68 +988,280 @@ function renderVocabCards() {
 
   state.enteredWords.forEach((word) => {
     const entry = getVocabEntry(word);
+    const example = getFirstExample(entry, word);
     const card = document.createElement("article");
     card.className = "vocab-card";
-    card.innerHTML = `
-      <header>
-        <div>
-          <h4>${word}</h4>
-          <span class="ipa">${entry.ipa}</span>
-        </div>
-        <span class="tag">${entry.pos}</span>
-      </header>
-      <p>${entry.meaning}</p>
-      <ol class="examples">
-        ${entry.examples
-          .map(
-            (example) => `
-              <li>
-                ${example}
-                <button class="speak-small" type="button" aria-label="朗读例句">▶</button>
-              </li>`
-          )
-          .join("")}
-      </ol>
-    `;
-
-    [...card.querySelectorAll(".speak-small")].forEach((button, index) => {
-      button.addEventListener("click", () => speak(entry.examples[index]));
-    });
+    card.innerHTML = [
+      "<header>",
+      "<div>",
+      "<h4>" + escapeHtml(word) + "</h4>",
+      "<span class=\"ipa\">" + escapeHtml(entry.ipa) + "</span>",
+      "</div>",
+      "<span class=\"tag\">" + escapeHtml(entry.pos) + "</span>",
+      "</header>",
+      "<p>" + escapeHtml(entry.meaning) + "</p>",
+      "<ol class=\"examples\"><li>" + escapeHtml(example) + "</li></ol>"
+    ].join("");
 
     els.vocabCards.appendChild(card);
   });
 }
 
-function renderGrammar() {
-  els.grammarList.innerHTML = "";
+function getFirstExample(entry, word) {
+  return entry.examples?.[0] || "I found the word \"" + word + "\" in today's reading passage.";
+}
 
-  state.lesson.grammar.forEach((item, index) => {
+function getSentenceItems() {
+  const grammarItems = Array.isArray(state.lesson?.grammar) ? state.lesson.grammar : [];
+  if (grammarItems.length) {
+    return grammarItems.map((item, index) => ({
+      sentence: item.sentence || splitIntoSentences(state.lesson.paragraph)[index] || "",
+      translation: state.lesson.sentenceTranslations?.[index] || "",
+      formula: item.formula || "S + V + O / Adv",
+      explanation: item.explanation || "请先找主词 S，再找谓词 V，最后判断宾词 O、补语 C 或状语 Adv。"
+    }));
+  }
+
+  return splitIntoSentences(state.lesson.paragraph).map((sentence, index) => ({
+    sentence,
+    translation: state.lesson.sentenceTranslations?.[index] || "",
+    formula: "S + V + O / Adv",
+    explanation: "请先找主词 S，再找谓词 V，最后判断宾词 O、补语 C 或状语 Adv。"
+  }));
+}
+
+function splitIntoSentences(text) {
+  return (
+    String(text || "")
+      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+      ?.map((sentence) => sentence.trim())
+      .filter(Boolean) || []
+  );
+}
+
+function renderSentenceStudy() {
+  els.sentenceStudyList.innerHTML = "";
+  const items = getSentenceItems();
+
+  items.forEach((item, index) => {
     const card = document.createElement("article");
-    card.className = "grammar-card";
-    card.innerHTML = `
-      <span class="formula">${index + 1}. ${item.formula}</span>
-      <blockquote>${item.sentence}</blockquote>
-      <p>${item.explanation}</p>
-    `;
-    els.grammarList.appendChild(card);
+    card.className = "sentence-study-card" + (index > 0 ? " locked" : "");
+    card.dataset.index = String(index);
+    card.innerHTML = [
+      "<header><span>" + (index + 1) + "</span><strong>" + (index === 0 ? "当前句" : "下一句") + "</strong></header>",
+      "<p class=\"sentence-english\">" + escapeHtml(item.sentence) + "</p>",
+      "<button class=\"quiet-button sentence-step-button\" type=\"button\" data-action=\"translation\" " + (index > 0 ? "disabled" : "") + ">显示中文翻译</button>",
+      "<div class=\"sentence-translation hidden-step\">" + escapeHtml(item.translation || "这一句暂无单独翻译，请对照上下文理解。") + "</div>",
+      "<button class=\"quiet-button sentence-step-button\" type=\"button\" data-action=\"grammar\" disabled>显示语法结构</button>",
+      "<div class=\"sentence-grammar-detail hidden-step\"><div class=\"syntax-line\">" + renderSyntaxMarkup(item.sentence) + "</div><small>" + escapeHtml(getTenseNote(item)) + "</small></div>"
+    ].join("");
+    els.sentenceStudyList.appendChild(card);
+  });
+
+  els.sentenceStudyList.onclick = handleSentenceStudyClick;
+}
+
+function handleSentenceStudyClick(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button || button.disabled) return;
+
+  const card = button.closest(".sentence-study-card");
+  const action = button.dataset.action;
+
+  if (action === "translation") {
+    card.querySelector(".sentence-translation").classList.remove("hidden-step");
+    card.querySelector("button[data-action=grammar]").disabled = false;
+    button.disabled = true;
+    updateSteps(3);
+    return;
+  }
+
+  if (action === "grammar") {
+    card.querySelector(".sentence-grammar-detail").classList.remove("hidden-step");
+    card.classList.add("complete");
+    button.disabled = true;
+    unlockNextSentenceCard(card);
+    saveProgress("已学习逐句翻译与语法");
+  }
+}
+
+function unlockNextSentenceCard(card) {
+  const next = card.nextElementSibling;
+  if (!next) {
+    updateSteps(4);
+    return;
+  }
+
+  next.classList.remove("locked");
+  next.querySelector("button[data-action=translation]").disabled = false;
+}
+
+const PREPOSITIONS = new Set(["in", "on", "at", "by", "for", "from", "with", "to", "into", "through", "before", "after", "during", "beside", "near", "of", "about", "than", "over", "under"]);
+const DETERMINERS = new Set(["a", "an", "the", "this", "that", "these", "those", "his", "her", "its", "their", "our", "my", "your", "many", "some", "one", "several", "every"]);
+const CONJUNCTIONS = new Set(["and", "but", "so", "because", "when", "while", "whether", "or", "where", "who", "that", "if"]);
+const MODALS = new Set(["can", "could", "must", "would", "should", "may", "might", "will"]);
+const BE_FORMS = new Set(["am", "is", "are", "was", "were", "be", "been", "being"]);
+const LINKING_VERBS = new Set(["become", "became", "seem", "seems", "feel", "feels", "look", "looks"]);
+const TRANSITIVE_VERBS = new Set(["slow", "reaches", "reach", "wear", "change", "care", "make", "find", "trace", "explain", "save", "trust", "damage", "damaged", "leave", "said", "say", "carry", "carrying", "translate", "translating", "warned", "take", "needed", "need", "shows", "show", "interrupt", "protect", "passes", "pass", "thought", "found", "invited", "join", "discuss", "share", "read", "learned", "guess", "mark", "ask", "opened", "plan", "measured", "chose", "wrote", "expected", "hurt", "keep", "helped", "connect", "taught", "studying", "growing", "trying"]);
+const INTRANSITIVE_VERBS = new Set(["spread", "fell", "sleeping", "preparing", "went", "arrive", "arrives", "matters"]);
+
+function renderSyntaxMarkup(sentence) {
+  return getAnnotatedWords(sentence)
+    .map((item) => "<span class=\"syntax-word\"><u>" + escapeHtml(item.word) + "</u><em>(" + item.code + ")</em></span>")
+    .join("<span class=\"syntax-plus\">+</span>");
+}
+
+function getAnnotatedWords(sentence) {
+  const words = String(sentence || "").match(/[A-Za-z]+(?:-[A-Za-z]+)?|[0-9]+/g) || [];
+  const firstVerbIndex = words.findIndex((word, index) => isVerbLike(words, index));
+
+  return words.map((word, index) => ({
+    word,
+    code: inferGrammarCode(words, index, firstVerbIndex)
+  }));
+}
+
+function inferGrammarCode(words, index, firstVerbIndex) {
+  const lower = words[index].toLowerCase();
+  const previous = words[index - 1]?.toLowerCase() || "";
+  const next = words[index + 1]?.toLowerCase() || "";
+
+  if (MODALS.has(lower)) return "Modal";
+  if (CONJUNCTIONS.has(lower)) return lower === "who" || lower === "where" || lower === "that" ? "Rel" : "Conj";
+  if (PREPOSITIONS.has(lower)) return "Prep";
+  if (DETERMINERS.has(lower)) return firstVerbIndex >= 0 && index < firstVerbIndex && !hasPrepositionBeforeVerb(words, index, firstVerbIndex) ? "S" : "Det";
+  if (BE_FORMS.has(lower)) return next.endsWith("ing") ? "Aux" : "Vl";
+  if (LINKING_VERBS.has(lower)) return "Vl";
+  if (TRANSITIVE_VERBS.has(lower)) return "Vt.";
+  if (INTRANSITIVE_VERBS.has(lower)) return "Vi.";
+  if (lower.endsWith("ly")) return "Adv";
+  if (previous === "to" && isVerbBase(lower)) return TRANSITIVE_VERBS.has(lower) ? "Vt." : "Vi.";
+  if (hasRecentPreposition(words, index, firstVerbIndex)) return "N";
+  if (firstVerbIndex === -1 || index < firstVerbIndex) return "S";
+
+  const firstVerb = words[firstVerbIndex]?.toLowerCase() || "";
+  if (BE_FORMS.has(firstVerb) || LINKING_VERBS.has(firstVerb)) return "C";
+  return "O";
+}
+
+function isVerbLike(words, index) {
+  const lower = words[index].toLowerCase();
+  const next = words[index + 1]?.toLowerCase() || "";
+  return MODALS.has(lower) || BE_FORMS.has(lower) || LINKING_VERBS.has(lower) || TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || (lower === "had" && next === "to");
+}
+
+function isVerbBase(lower) {
+  return TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || ["use", "write", "study", "learn", "grow"].includes(lower);
+}
+
+function hasPrepositionBeforeVerb(words, index, firstVerbIndex) {
+  if (firstVerbIndex < 0) return false;
+  return words.slice(0, index).some((word) => PREPOSITIONS.has(word.toLowerCase()));
+}
+
+function hasRecentPreposition(words, index, firstVerbIndex) {
+  const start = Math.max(firstVerbIndex + 1, index - 4, 0);
+  return words.slice(start, index).some((word) => PREPOSITIONS.has(word.toLowerCase()));
+}
+
+function getTenseNote(item) {
+  const sentence = item.sentence.toLowerCase();
+  const notes = [];
+
+  if (/\b(was|were)\s+[a-z]+ing\b/.test(sentence)) notes.push("过去进行时：表示过去某一时间正在发生的动作。");
+  if (/\b(am|is|are)\s+[a-z]+ing\b/.test(sentence)) notes.push("现在进行时：表示正在进行或当前阶段持续的动作。");
+  if (/\b(can|could|must|would|should|may|might|will)\b/.test(sentence)) notes.push("情态动词：后接动词原形，用来表示能力、可能、必须或推测。");
+  if (/\b(was|were|had|opened|damaged|helped|learned|taught|found|asked|invited|warned)\b/.test(sentence)) notes.push("一般过去时：用于叙述已经发生的事情。");
+  if (/\b(is|are|was|were|be|been)\s+[a-z]+ed\b/.test(sentence)) notes.push("被动语态：be + 过去分词，强调动作的承受者。");
+  if (!notes.length) notes.push("一般现在时：用于说明事实、习惯或文章中的普遍判断。");
+
+  return notes.join(" ") + " " + item.explanation;
+}
+
+function renderQuiz() {
+  state.quizQuestions = buildQuizQuestions();
+  els.quizList.innerHTML = state.quizQuestions.map(renderQuizQuestion).join("");
+  els.quizFeedback.classList.remove("show");
+  els.quizFeedback.innerHTML = "";
+
+  const button = document.createElement("button");
+  button.className = "primary-button";
+  button.type = "button";
+  button.textContent = "提交答案";
+  button.addEventListener("click", checkQuizAnswers);
+  els.quizList.appendChild(button);
+}
+
+function buildQuizQuestions() {
+  const items = getSentenceItems();
+  const templates = [
+    { label: "主词", codes: ["S"] },
+    { label: "谓词动词", codes: ["Vt.", "Vi.", "Vl", "Aux", "Modal"] },
+    { label: "宾词或补语", codes: ["O", "C"] }
+  ];
+
+  return templates.map((template, index) => {
+    const item = items[index % items.length];
+    const annotated = getAnnotatedWords(item.sentence);
+    const answer = annotated.find((part) => template.codes.includes(part.code))?.word || annotated[0]?.word || "以上都不是";
+    const options = buildQuizOptions(answer, annotated.map((part) => part.word), index);
+
+    return {
+      sentence: item.sentence,
+      question: "此句中的" + template.label + "是哪一个？",
+      options,
+      answer
+    };
   });
 }
 
-function renderSentencePairs() {
-  els.sentencePairs.innerHTML = "";
+function buildQuizOptions(answer, words, index) {
+  const uniqueWords = [...new Set(words.filter((word) => word !== answer))];
+  const options = [answer, ...uniqueWords.slice(0, 2), "以上都不是"].slice(0, 4);
+  while (options.length < 4) options.splice(options.length - 1, 0, "未出现");
+  const shift = index % options.length;
+  return [...options.slice(shift), ...options.slice(0, shift)];
+}
 
-  state.lesson.grammar.forEach((item, index) => {
-    const pair = document.createElement("article");
-    pair.className = "sentence-pair";
-    pair.innerHTML = `
-      <span>${index + 1}</span>
-      <div>
-        <p class="pair-en">${item.sentence}</p>
-        <p class="pair-zh">${state.lesson.sentenceTranslations[index] || ""}</p>
-      </div>
-    `;
-    els.sentencePairs.appendChild(pair);
+function renderQuizQuestion(question, index) {
+  return [
+    "<article class=\"quiz-card\">",
+    "<p class=\"quiz-sentence\">" + (index + 1) + ". " + escapeHtml(question.sentence) + "</p>",
+    "<fieldset><legend>" + escapeHtml(question.question) + "</legend>",
+    question.options
+      .map((option, optionIndex) => "<label><input type=\"radio\" name=\"quiz-" + index + "\" value=\"" + escapeHtml(option) + "\" /><span>(" + (optionIndex + 1) + ") " + escapeHtml(option) + "</span></label>")
+      .join(""),
+    "</fieldset></article>"
+  ].join("");
+}
+
+function checkQuizAnswers() {
+  const results = state.quizQuestions.map((question, index) => {
+    const selected = els.quizList.querySelector("input[name=\"quiz-" + index + "\"]:checked")?.value || "";
+    return { question, selected, correct: selected === question.answer };
   });
+  const score = results.filter((result) => result.correct).length;
+
+  els.quizFeedback.classList.add("show");
+  els.quizFeedback.innerHTML = [
+    "<h4>语法选择题结果：" + score + " / " + state.quizQuestions.length + "</h4>",
+    "<ol>",
+    results
+      .map((result, index) => "<li>第 " + (index + 1) + " 题：" + (result.correct ? "答对了" : "正确答案是 " + escapeHtml(result.question.answer)) + "。</li>")
+      .join(""),
+    "</ol>",
+    "<p class=\"screenshot-reminder\">请把这一页截屏保留，并发给爸爸。</p>"
+  ].join("");
+  updateSteps(6);
+  saveProgress("已完成语法选择题", { quizScore: score });
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function chooseChallengeWord() {
@@ -1081,11 +1285,9 @@ function buildStudyContent() {
 
   state.enteredWords = words;
   renderVocabCards();
-  renderGrammar();
-  renderSentencePairs();
+  renderSentenceStudy();
+  renderQuiz();
   chooseChallengeWord();
-  els.englishCopy.textContent = state.lesson.paragraph;
-  els.chineseTranslation.textContent = state.lesson.translation;
   els.studyContent.classList.remove("hidden");
   updateSteps(2);
   saveProgress("已生成学习内容");
@@ -1093,11 +1295,11 @@ function buildStudyContent() {
 
 function updateCopyStatus() {
   if (els.copyCheck.checked && els.readCheck.checked) {
-    els.copyStatus.textContent = "很好，现在可以完成三句造句练习。";
-    updateSteps(6);
+    els.copyStatus.textContent = "很好，现在可以完成三题语法选择题。";
+    updateSteps(5);
     if (state.enteredWords.length) saveProgress("已完成抄写与朗读");
   } else {
-    els.copyStatus.textContent = "完成两项后，再进入造句练习。";
+    els.copyStatus.textContent = "完成两项后，再进入语法选择题。";
     if (state.enteredWords.length) saveProgress("学习进行中");
   }
 }
@@ -1169,17 +1371,11 @@ function detectIssues(sentence, word, index) {
 
 function getModelSentences(word) {
   const entry = getVocabEntry(word);
-  return entry.examples.length >= 2
-    ? [
-        entry.examples[0],
-        entry.examples[1],
-        `I can use "${word}" clearly when I write about today's article.`
-      ]
-    : [
-        `I found "${word}" in today's reading passage.`,
-        `The word "${word}" is useful for this topic.`,
-        `I can make a clear sentence with "${word}".`
-      ];
+  const firstExample = getFirstExample(entry, word);
+  return [
+    firstExample,
+    `I can use "${word}" clearly when I write about today's article.`
+  ];
 }
 
 function checkSentences() {
@@ -1192,11 +1388,11 @@ function checkSentences() {
   const sentences = splitStudentSentences(els.sentenceInput.value);
   const issues = [];
 
-  if (sentences.length < 3) {
-    issues.push("请至少输入三句，每句单独一行。");
+  if (sentences.length < 2) {
+    issues.push("请至少输入两句，每句单独一行。");
   }
 
-  sentences.slice(0, 3).forEach((sentence, index) => {
+  sentences.slice(0, 2).forEach((sentence, index) => {
     issues.push(...detectIssues(sentence, state.challengeWord, index));
   });
 
@@ -1208,7 +1404,7 @@ function checkSentences() {
     ${
       issues.length
         ? `<ul>${issues.map((issue) => `<li>${issue}</li>`).join("")}</ul>`
-        : "<p>三句都包含目标生词，并通过了基础大小写、标点和常见语法检查。</p>"
+        : "<p>两句都包含目标生词，并通过了基础大小写、标点和常见语法检查。</p>"
     }
     <h4>可参考的正确句子</h4>
     <ol>${models.map((sentence) => `<li>${sentence}</li>`).join("")}</ol>
@@ -1217,7 +1413,6 @@ function checkSentences() {
   saveProgress("已检查造句", { sentenceCount: sentences.length, issueCount: issues.length });
 }
 
-els.readArticleButton.addEventListener("click", () => speak(state.lesson.paragraph));
 els.printButton.addEventListener("click", () => window.print());
 els.newLessonButton.addEventListener("click", () => renderLesson({ forceRefresh: true }));
 els.clearRecordsButton.addEventListener("click", () => {

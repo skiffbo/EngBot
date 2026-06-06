@@ -275,8 +275,8 @@ h3 {
 .reading-panel,
 .input-panel,
 .translation-panel,
-.sentence-compare-panel,
-.grammar-panel,
+.sentence-study-panel,
+.quiz-panel,
 .copy-panel,
 .sentence-panel {
   border: 1px solid var(--line);
@@ -407,10 +407,10 @@ h3 {
 }
 
 .input-panel,
-.sentence-compare-panel,
+.sentence-study-panel,
 .copy-panel,
 .sentence-panel,
-.grammar-panel {
+.quiz-panel {
   padding: 18px;
 }
 
@@ -507,35 +507,6 @@ textarea:focus {
 .examples li {
   margin-bottom: 8px;
   line-height: 1.5;
-}
-
-.speak-small {
-  min-width: 38px;
-  height: 34px;
-  border-radius: var(--radius);
-  border: 1px solid rgba(49, 93, 124, 0.32);
-  background: rgba(49, 93, 124, 0.08);
-  color: var(--blue);
-  font-weight: 900;
-}
-
-.translation-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.translation-panel {
-  padding: 18px;
-}
-
-.translation-panel p:last-child {
-  margin-bottom: 0;
-  line-height: 1.75;
-}
-
-.translation-panel.chinese {
-  background: rgba(232, 239, 230, 0.92);
 }
 
 .sentence-pairs {
@@ -650,6 +621,162 @@ textarea:focus {
   color: var(--muted);
 }
 
+.sentence-study-list,
+.quiz-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sentence-study-card,
+.quiz-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fffaf0;
+  padding: 15px;
+}
+
+.sentence-study-card {
+  display: grid;
+  gap: 10px;
+}
+
+.sentence-study-card.locked {
+  opacity: 0.58;
+}
+
+.sentence-study-card.complete {
+  border-color: rgba(47, 103, 72, 0.42);
+  background: rgba(232, 239, 230, 0.72);
+}
+
+.sentence-study-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green-dark);
+}
+
+.sentence-study-card header span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fffaf0;
+  background: var(--red);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.sentence-english {
+  margin-bottom: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  line-height: 1.62;
+}
+
+.sentence-step-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.hidden-step {
+  display: none;
+}
+
+.sentence-translation,
+.sentence-grammar-detail {
+  padding: 13px 14px;
+  border: 1px solid rgba(47, 103, 72, 0.18);
+  border-radius: var(--radius);
+  background: rgba(47, 103, 72, 0.06);
+  line-height: 1.65;
+}
+
+.syntax-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  margin-bottom: 9px;
+  line-height: 1.8;
+}
+
+.syntax-word {
+  display: inline-flex;
+  gap: 2px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.syntax-word u {
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.syntax-word em {
+  color: var(--blue);
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.syntax-plus {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.sentence-grammar-detail small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.quiz-card fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.quiz-card legend {
+  margin-bottom: 4px;
+  color: var(--green-dark);
+  font-weight: 900;
+}
+
+.quiz-card label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid rgba(47, 103, 72, 0.18);
+  border-radius: var(--radius);
+  background: rgba(47, 103, 72, 0.05);
+  cursor: pointer;
+}
+
+.quiz-card input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--green);
+}
+
+.quiz-sentence {
+  margin-bottom: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.58;
+}
+
+.screenshot-reminder {
+  margin: 10px 0 0;
+  color: var(--red);
+  font-weight: 900;
+}
+
 .copy-panel {
   display: grid;
   gap: 10px;
@@ -758,7 +885,6 @@ textarea:focus {
 
   .steps,
   .vocab-grid,
-  .translation-grid,
   .grammar-legend {
     grid-template-columns: 1fr;
   }
@@ -804,7 +930,6 @@ textarea:focus {
 
   .topbar,
   .workspace,
-  .translation-grid,
   .vocab-grid {
     display: block;
   }
@@ -812,9 +937,8 @@ textarea:focus {
   .source-strip,
   .reading-panel,
   .input-panel,
-  .translation-panel,
-  .sentence-compare-panel,
-  .grammar-panel,
+  .sentence-study-panel,
+  .quiz-panel,
   .vocab-card,
   .grammar-card,
   .sentence-pair {

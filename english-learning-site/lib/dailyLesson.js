@@ -3,10 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Readability } from "@mozilla/readability";
 import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
-import { JSDOM } from "jsdom";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
@@ -141,7 +139,7 @@ async function buildBbcLesson(dateInfo, variant) {
     const items = await fetchBbcItems();
     item = chooseBySeed(items, `${dateInfo.isoDate}-bbc-${variant}`);
     const html = await fetchText(item.link);
-    article = extractArticle(html, item.link);
+    article = await extractArticle(html, item.link);
   } catch (error) {
     const topic = "BBC News source temporarily unavailable";
     return composeLesson({
@@ -355,7 +353,7 @@ async function loadSourceText(url) {
   }
 
   const html = await response.text();
-  return extractArticle(html, url).text;
+  return (await extractArticle(html, url)).text;
 }
 
 function composeLesson(input) {
@@ -453,21 +451,22 @@ function ensureMinimumWords(paragraph, style, topic, keywordPhrase) {
 }
 
 function extractArticle(html, url) {
-  const dom = new JSDOM(html, { url });
-  const readable = new Readability(dom.window.document).parse();
-  const readableText = normalizeText(readable?.textContent || "");
-  if (readableText) {
-    return {
-      title: readable?.title || "",
-      text: readableText
-    };
-  }
-
   const $ = cheerio.load(html);
-  $("script, style, noscript, svg").remove();
+  $("script, style, noscript, svg, nav, footer, header").remove();
+  const title =
+    $("meta[property='og:title']").attr("content")?.trim() ||
+    $("h1").first().text().trim() ||
+    $("title").first().text().trim();
+  const articleText = normalizeText(
+    $("article").first().text() ||
+      $("main").first().text() ||
+      $("[role='main']").first().text() ||
+      $("body").text()
+  );
+
   return {
-    title: $("title").first().text().trim(),
-    text: normalizeText($("body").text())
+    title,
+    text: articleText
   };
 }
 

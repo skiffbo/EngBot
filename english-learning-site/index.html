@@ -34,9 +34,9 @@
             <li class="active">读英文段落</li>
             <li>输入生词</li>
             <li>学习单词卡</li>
-            <li>看繁中翻译</li>
-            <li>拆解句子语法</li>
+            <li>逐句翻译与语法</li>
             <li>抄写并朗读</li>
+            <li>语法选择题</li>
             <li>用生词造句</li>
             <li>检查与订正</li>
           </ol>
@@ -64,10 +64,6 @@
           <article class="reading-panel">
             <p id="articleText" class="article-text"></p>
             <div class="article-tools">
-              <button class="primary-button" id="readArticleButton" type="button">
-                <span aria-hidden="true">▶</span>
-                朗读英文
-              </button>
               <span id="wordCount" class="count-badge">0 words</span>
               <button class="quiet-button" id="printButton" type="button">打印学习单</button>
             </div>
@@ -96,33 +92,11 @@
             </div>
             <div id="vocabCards" class="vocab-grid"></div>
 
-            <div class="translation-grid">
-              <section class="translation-panel">
+            <section class="sentence-study-panel" aria-labelledby="sentenceStudyTitle">
+              <div class="section-heading">
                 <p class="section-kicker">Step 4</p>
-                <h3>英文原文</h3>
-                <p id="englishCopy"></p>
-              </section>
-              <section class="translation-panel chinese">
-                <p class="section-kicker">繁體中文</p>
-                <h3>中文翻譯</h3>
-                <p id="chineseTranslation"></p>
-              </section>
-            </div>
-
-            <section class="sentence-compare-panel" aria-labelledby="sentenceCompareTitle">
-              <div class="section-heading">
-                <p class="section-kicker">Sentence Pair</p>
-                <h3 id="sentenceCompareTitle">逐句英中对照</h3>
-                <p>先读英文，再看中文确认意思，不要先依赖翻译。</p>
-              </div>
-              <div id="sentencePairs" class="sentence-pairs"></div>
-            </section>
-
-            <section class="grammar-panel" aria-labelledby="grammarTitle">
-              <div class="section-heading">
-                <p class="section-kicker">Step 5</p>
-                <h3 id="grammarTitle">一句一句拆解语法</h3>
-                <p>请把公式读出来，再对照句子找 S、V、O、C 和状语。</p>
+                <h3 id="sentenceStudyTitle">逐句翻译与语法拆解</h3>
+                <p>按顺序点开：先看英文，再看中文，最后看语法结构。</p>
               </div>
               <dl class="grammar-legend" aria-label="语法缩写速查">
                 <div><dt>S</dt><dd>主词 Subject</dd></div>
@@ -132,17 +106,27 @@
                 <div><dt>C</dt><dd>补语 Complement</dd></div>
                 <div><dt>Adv</dt><dd>状语 Adverbial</dd></div>
               </dl>
-              <div id="grammarList" class="grammar-list"></div>
+              <div id="sentenceStudyList" class="sentence-study-list"></div>
             </section>
 
             <section class="copy-panel" aria-labelledby="copyTitle">
               <div>
-                <p class="section-kicker">Step 6</p>
+                <p class="section-kicker">Step 5</p>
                 <h3 id="copyTitle">抄写与朗读确认</h3>
               </div>
               <label><input type="checkbox" id="copyCheck" /> 我已经把英文段落抄写在纸上。</label>
               <label><input type="checkbox" id="readCheck" /> 我已经朗读英文段落至少两遍。</label>
-              <p id="copyStatus" class="status-line">完成两项后，再进入造句练习。</p>
+              <p id="copyStatus" class="status-line">完成两项后，再进入语法选择题。</p>
+            </section>
+
+            <section class="quiz-panel" aria-labelledby="quizTitle">
+              <div class="section-heading">
+                <p class="section-kicker">Step 6</p>
+                <h3 id="quizTitle">语法选择题</h3>
+                <p>完成三题后，请把本页截屏保留并发给爸爸。</p>
+              </div>
+              <div id="quizList" class="quiz-list"></div>
+              <div id="quizFeedback" class="feedback-box" aria-live="polite"></div>
             </section>
 
             <section class="sentence-panel" aria-labelledby="challengeTitle">
@@ -154,7 +138,7 @@
                 <button class="quiet-button" id="rerollWordButton" type="button">换一个词</button>
               </div>
               <p class="challenge-word">今天抽到：<strong id="challengeWord">-</strong></p>
-              <textarea id="sentenceInput" rows="5" placeholder="请用抽到的单词造 3 句，每句一行。"></textarea>
+              <textarea id="sentenceInput" rows="5" placeholder="请用抽到的单词造 2 句，每句一行。"></textarea>
               <button class="primary-button" id="checkSentencesButton" type="button">
                 <span aria-hidden="true">✓</span>
                 检查造句
