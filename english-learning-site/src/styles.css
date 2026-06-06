@@ -277,7 +277,6 @@ h3 {
 .translation-panel,
 .sentence-study-panel,
 .quiz-panel,
-.copy-panel,
 .sentence-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -408,7 +407,6 @@ h3 {
 
 .input-panel,
 .sentence-study-panel,
-.copy-panel,
 .sentence-panel,
 .quiz-panel {
   padding: 18px;
@@ -695,36 +693,32 @@ textarea:focus {
 }
 
 .syntax-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: baseline;
+  display: grid;
+  gap: 8px;
   margin-bottom: 9px;
   line-height: 1.8;
 }
 
-.syntax-word {
-  display: inline-flex;
-  gap: 2px;
-  align-items: baseline;
-  white-space: nowrap;
+.syntax-part {
+  display: block;
 }
 
-.syntax-word u {
+.syntax-part u {
   text-decoration-thickness: 2px;
   text-underline-offset: 0.2em;
 }
 
-.syntax-word em {
+.syntax-part em {
   color: var(--blue);
   font-style: normal;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
 .syntax-plus {
   color: var(--muted);
   font-weight: 900;
+  padding-left: 10px;
 }
 
 .sentence-grammar-detail small {
@@ -777,26 +771,6 @@ textarea:focus {
   font-weight: 900;
 }
 
-.copy-panel {
-  display: grid;
-  gap: 10px;
-}
-
-.copy-panel label {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 11px 12px;
-  border: 1px solid rgba(47, 103, 72, 0.18);
-  border-radius: var(--radius);
-  background: rgba(47, 103, 72, 0.06);
-}
-
-.copy-panel input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--green);
-}
 
 .status-line {
   margin-bottom: 0;
@@ -918,8 +892,7 @@ textarea:focus {
   .source-strip a,
   .article-tools,
   .button-row,
-  .sentence-panel,
-  .copy-panel {
+  .sentence-panel {
     display: none !important;
   }
 

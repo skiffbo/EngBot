@@ -754,9 +754,6 @@ const els = {
   sentenceStudyList: document.querySelector("#sentenceStudyList"),
   quizList: document.querySelector("#quizList"),
   quizFeedback: document.querySelector("#quizFeedback"),
-  copyCheck: document.querySelector("#copyCheck"),
-  readCheck: document.querySelector("#readCheck"),
-  copyStatus: document.querySelector("#copyStatus"),
   challengeWord: document.querySelector("#challengeWord"),
   rerollWordButton: document.querySelector("#rerollWordButton"),
   sentenceInput: document.querySelector("#sentenceInput"),
@@ -906,8 +903,6 @@ function saveProgress(stage, extra = {}) {
     source: state.lesson.sourceLabel,
     words: [...state.enteredWords],
     challengeWord: state.challengeWord,
-    copied: els.copyCheck.checked,
-    readAloud: els.readCheck.checked,
     ...extra
   };
   const existingIndex = records.findIndex((record) => record.key === key);
@@ -958,14 +953,11 @@ async function renderLesson(options = {}) {
   els.wordInput.value = "";
   els.sentenceInput.value = "";
   els.studyContent.classList.add("hidden");
-  els.copyCheck.checked = false;
-  els.readCheck.checked = false;
   els.sentenceFeedback.classList.remove("show");
   els.sentenceFeedback.innerHTML = "";
   els.quizFeedback.classList.remove("show");
   els.quizFeedback.innerHTML = "";
   els.quizList.innerHTML = "";
-  updateCopyStatus();
   updateSteps(0);
   renderRecords();
 }
@@ -1102,66 +1094,310 @@ const CONJUNCTIONS = new Set(["and", "but", "so", "because", "when", "while", "w
 const MODALS = new Set(["can", "could", "must", "would", "should", "may", "might", "will"]);
 const BE_FORMS = new Set(["am", "is", "are", "was", "were", "be", "been", "being"]);
 const LINKING_VERBS = new Set(["become", "became", "seem", "seems", "feel", "feels", "look", "looks"]);
-const TRANSITIVE_VERBS = new Set(["slow", "reaches", "reach", "wear", "change", "care", "make", "find", "trace", "explain", "save", "trust", "damage", "damaged", "leave", "said", "say", "carry", "carrying", "translate", "translating", "warned", "take", "needed", "need", "shows", "show", "interrupt", "protect", "passes", "pass", "thought", "found", "invited", "join", "discuss", "share", "read", "learned", "guess", "mark", "ask", "opened", "plan", "measured", "chose", "wrote", "expected", "hurt", "keep", "helped", "connect", "taught", "studying", "growing", "trying"]);
+const TRANSITIVE_VERBS = new Set(["slow", "reaches", "reach", "wear", "change", "care", "make", "find", "trace", "explain", "save", "trust", "damage", "damaged", "leave", "said", "say", "carry", "carrying", "translate", "translating", "warned", "take", "needed", "need", "shows", "show", "interrupt", "protect", "passes", "pass", "thought", "found", "invited", "join", "discuss", "share", "read", "learned", "guess", "mark", "ask", "opened", "plan", "measured", "chose", "wrote", "expected", "hurt", "keep", "helped", "connect", "taught", "studying", "growing", "trying", "points", "keeps", "includes", "underline", "decide", "describing", "giving", "explaining"]);
 const INTRANSITIVE_VERBS = new Set(["spread", "fell", "sleeping", "preparing", "went", "arrive", "arrives", "matters"]);
 
 function renderSyntaxMarkup(sentence) {
-  return getAnnotatedWords(sentence)
-    .map((item) => "<span class=\"syntax-word\"><u>" + escapeHtml(item.word) + "</u><em>(" + item.code + ")</em></span>")
+  return getStructureParts(sentence)
+    .map(
+      (part) =>
+        "<span class=\"syntax-part\"><u>" +
+        escapeHtml(part.text) +
+        "</u><em>(" +
+        escapeHtml(part.label) +
+        ")</em></span>"
+    )
     .join("<span class=\"syntax-plus\">+</span>");
 }
 
-function getAnnotatedWords(sentence) {
-  const words = String(sentence || "").match(/[A-Za-z]+(?:-[A-Za-z]+)?|[0-9]+/g) || [];
-  const firstVerbIndex = words.findIndex((word, index) => isVerbLike(words, index));
+const FREQUENCY_ADVERBS = new Set(["always", "usually", "often", "sometimes", "seldom", "never", "already", "still", "also"]);
+const CLAUSE_STARTERS = new Set(["why", "that", "how", "where", "when", "whether", "if", "who", "which"]);
+const COORDINATORS = new Set(["and", "but", "or", "so"]);
 
-  return words.map((word, index) => ({
-    word,
-    code: inferGrammarCode(words, index, firstVerbIndex)
-  }));
+function getStructureParts(sentence) {
+  const tokens = tokenizeStructure(sentence);
+  const parts = [];
+  let index = 0;
+
+  if (!tokens.length) return parts;
+
+  const leadingComma = tokens.indexOf(",");
+  const firstLower = lowerToken(tokens[0]);
+  if (leadingComma > 1 && (PREPOSITIONS.has(firstLower) || ["when", "after", "before", "as", "while"].includes(firstLower))) {
+    parts.push({
+      text: joinTokens(tokens.slice(0, leadingComma)),
+      label: PREPOSITIONS.has(firstLower) ? "介词短语 PP" : "状语从句 Adv-Clause"
+    });
+    parts.push({ text: "\",\"", label: "连接标点符号" });
+    index = leadingComma + 1;
+  }
+
+  if (parseInfinitiveList(tokens, index, parts)) return parts;
+
+  parseGeneralClause(tokens, index, parts);
+  return parts.filter((part) => part.text.trim());
 }
 
-function inferGrammarCode(words, index, firstVerbIndex) {
-  const lower = words[index].toLowerCase();
-  const previous = words[index - 1]?.toLowerCase() || "";
-  const next = words[index + 1]?.toLowerCase() || "";
-
-  if (MODALS.has(lower)) return "Modal";
-  if (CONJUNCTIONS.has(lower)) return lower === "who" || lower === "where" || lower === "that" ? "Rel" : "Conj";
-  if (PREPOSITIONS.has(lower)) return "Prep";
-  if (DETERMINERS.has(lower)) return firstVerbIndex >= 0 && index < firstVerbIndex && !hasPrepositionBeforeVerb(words, index, firstVerbIndex) ? "S" : "Det";
-  if (BE_FORMS.has(lower)) return next.endsWith("ing") ? "Aux" : "Vl";
-  if (LINKING_VERBS.has(lower)) return "Vl";
-  if (TRANSITIVE_VERBS.has(lower)) return "Vt.";
-  if (INTRANSITIVE_VERBS.has(lower)) return "Vi.";
-  if (lower.endsWith("ly")) return "Adv";
-  if (previous === "to" && isVerbBase(lower)) return TRANSITIVE_VERBS.has(lower) ? "Vt." : "Vi.";
-  if (hasRecentPreposition(words, index, firstVerbIndex)) return "N";
-  if (firstVerbIndex === -1 || index < firstVerbIndex) return "S";
-
-  const firstVerb = words[firstVerbIndex]?.toLowerCase() || "";
-  if (BE_FORMS.has(firstVerb) || LINKING_VERBS.has(firstVerb)) return "C";
-  return "O";
+function tokenizeStructure(sentence) {
+  return String(sentence || "")
+    .replace(/[“”]/g, "\"")
+    .match(/[A-Za-z]+(?:-[A-Za-z]+)?|[0-9]+|[,;:]/g) || [];
 }
 
-function isVerbLike(words, index) {
-  const lower = words[index].toLowerCase();
-  const next = words[index + 1]?.toLowerCase() || "";
-  return MODALS.has(lower) || BE_FORMS.has(lower) || LINKING_VERBS.has(lower) || TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || (lower === "had" && next === "to");
+function parseInfinitiveList(tokens, start, parts) {
+  const needIndex = tokens.findIndex((token, index) => index >= start && ["need", "needs", "needed"].includes(lowerToken(token)));
+  if (needIndex < start || lowerToken(tokens[needIndex + 1]) !== "to") return false;
+
+  addSubjectAndAdverbs(tokens.slice(start, needIndex), parts);
+  parts.push({ text: tokens[needIndex], label: "及物动词 Vt" });
+
+  let index = needIndex + 1;
+  while (index < tokens.length) {
+    const token = tokens[index];
+    const lower = lowerToken(token);
+
+    if (isPunctuation(token)) {
+      parts.push({ text: "\"" + token + "\"", label: "连接标点符号" });
+      index += 1;
+      continue;
+    }
+
+    if (COORDINATORS.has(lower)) {
+      parts.push({ text: token, label: "连接词 Conj" });
+      index += 1;
+      continue;
+    }
+
+    if (lower === "to" && isVerbBase(lowerToken(tokens[index + 1]))) {
+      const verb = tokens[index + 1];
+      parts.push({ text: "to " + verb, label: "不定式 Inf" });
+      index = addInfinitiveComplements(tokens, index + 2, parts);
+      continue;
+    }
+
+    if (isVerbBase(lower) || TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower)) {
+      parts.push({ text: token, label: "不定式 Inf，to " + lower + " 的 to 被省略了" });
+      index = addInfinitiveComplements(tokens, index + 1, parts);
+      continue;
+    }
+
+    index += 1;
+  }
+
+  return true;
+}
+
+function addInfinitiveComplements(tokens, start, parts) {
+  let index = start;
+
+  if (CLAUSE_STARTERS.has(lowerToken(tokens[index]))) {
+    const end = findNextBoundary(tokens, index);
+    parts.push({ text: joinTokens(tokens.slice(index, end)), label: "名词子句 N-clause 做受词 O" });
+    return end;
+  }
+
+  const objectStart = index;
+  while (
+    index < tokens.length &&
+    !isPunctuation(tokens[index]) &&
+    !COORDINATORS.has(lowerToken(tokens[index])) &&
+    !PREPOSITIONS.has(lowerToken(tokens[index])) &&
+    !CLAUSE_STARTERS.has(lowerToken(tokens[index]))
+  ) {
+    index += 1;
+  }
+
+  if (index > objectStart) {
+    parts.push({ text: joinTokens(tokens.slice(objectStart, index)), label: "受词 O" });
+  }
+
+  if (PREPOSITIONS.has(lowerToken(tokens[index]))) {
+    const ppStart = index;
+    index += 1;
+    while (
+      index < tokens.length &&
+      !isPunctuation(tokens[index]) &&
+      !COORDINATORS.has(lowerToken(tokens[index])) &&
+      !CLAUSE_STARTERS.has(lowerToken(tokens[index]))
+    ) {
+      index += 1;
+    }
+    parts.push({ text: joinTokens(tokens.slice(ppStart, index)), label: "介词短语 PP" });
+  }
+
+  if (CLAUSE_STARTERS.has(lowerToken(tokens[index]))) {
+    const end = findNextBoundary(tokens, index);
+    parts.push({ text: joinTokens(tokens.slice(index, end)), label: "名词子句 N-clause 做受词 O" });
+    index = end;
+  }
+
+  return index;
+}
+
+function parseGeneralClause(tokens, start, parts) {
+  const verbIndex = tokens.findIndex((token, index) => index >= start && isVerbLike(tokens, index));
+
+  if (verbIndex === -1) {
+    parts.push({ text: joinTokens(tokens.slice(start)), label: "句子片段 Clause" });
+    return;
+  }
+
+  addSubjectAndAdverbs(tokens.slice(start, verbIndex), parts);
+  const verbPart = getVerbPart(tokens, verbIndex);
+  parts.push(verbPart.part);
+  parseTail(tokens, verbPart.nextIndex, parts, verbPart.part.label);
+}
+
+function addSubjectAndAdverbs(tokens, parts) {
+  const cleanTokens = tokens.filter((token) => !isPunctuation(token));
+  const adverbs = cleanTokens.filter((token) => FREQUENCY_ADVERBS.has(lowerToken(token)) || lowerToken(token).endsWith("ly"));
+  const subject = cleanTokens.filter((token) => !adverbs.includes(token));
+
+  if (subject.length) parts.push({ text: joinTokens(subject), label: "主词 S" });
+  adverbs.forEach((adverb) => parts.push({ text: adverb, label: "频率副词 Adv" }));
+}
+
+function getVerbPart(tokens, index) {
+  const lower = lowerToken(tokens[index]);
+  const next = lowerToken(tokens[index + 1]);
+  const third = lowerToken(tokens[index + 2]);
+
+  if (MODALS.has(lower) && isVerbBase(next)) {
+    return {
+      part: { text: joinTokens(tokens.slice(index, index + 2)), label: "情态动词+谓词 Modal+V" },
+      nextIndex: index + 2
+    };
+  }
+
+  if (lower === "had" && next === "to" && isVerbBase(third)) {
+    return {
+      part: { text: joinTokens(tokens.slice(index, index + 3)), label: "半情态结构 Modal-like V" },
+      nextIndex: index + 3
+    };
+  }
+
+  if (BE_FORMS.has(lower) && next.endsWith("ing")) {
+    return {
+      part: { text: joinTokens(tokens.slice(index, index + 2)), label: "谓词动词 V / 进行时" },
+      nextIndex: index + 2
+    };
+  }
+
+  if (BE_FORMS.has(lower) || LINKING_VERBS.has(lower)) {
+    return { part: { text: tokens[index], label: "系动词 Vl" }, nextIndex: index + 1 };
+  }
+
+  if (INTRANSITIVE_VERBS.has(lower)) {
+    return { part: { text: tokens[index], label: "不及物动词 Vi" }, nextIndex: index + 1 };
+  }
+
+  return { part: { text: tokens[index], label: "及物动词 Vt" }, nextIndex: index + 1 };
+}
+
+function parseTail(tokens, start, parts, verbLabel) {
+  let index = start;
+  while (index < tokens.length) {
+    const token = tokens[index];
+    const lower = lowerToken(token);
+
+    if (isPunctuation(token)) {
+      parts.push({ text: "\"" + token + "\"", label: "连接标点符号" });
+      index += 1;
+      continue;
+    }
+
+    if (COORDINATORS.has(lower)) {
+      parts.push({ text: token, label: "连接词 Conj" });
+      index += 1;
+      continue;
+    }
+
+    if (["because", "when", "while", "before", "after", "as"].includes(lower)) {
+      const end = findNextBoundary(tokens, index);
+      parts.push({ text: joinTokens(tokens.slice(index, end)), label: "状语从句 Adv-Clause" });
+      index = end;
+      continue;
+    }
+
+    if (CLAUSE_STARTERS.has(lower)) {
+      const end = findNextBoundary(tokens, index);
+      parts.push({ text: joinTokens(tokens.slice(index, end)), label: "名词子句 N-clause 做受词 O" });
+      index = end;
+      continue;
+    }
+
+    if (PREPOSITIONS.has(lower)) {
+      const end = findPhraseBoundary(tokens, index + 1);
+      parts.push({ text: joinTokens(tokens.slice(index, end)), label: "介词短语 PP" });
+      index = end;
+      continue;
+    }
+
+    if (lower === "to" && isVerbBase(lowerToken(tokens[index + 1]))) {
+      parts.push({ text: joinTokens(tokens.slice(index, index + 2)), label: "不定式 Inf" });
+      index = addInfinitiveComplements(tokens, index + 2, parts);
+      continue;
+    }
+
+    if (isVerbLike(tokens, index)) {
+      const verbPart = getVerbPart(tokens, index);
+      parts.push(verbPart.part);
+      index = verbPart.nextIndex;
+      continue;
+    }
+
+    const end = findPhraseBoundary(tokens, index);
+    parts.push({
+      text: joinTokens(tokens.slice(index, end)),
+      label: /系动词|Vl/.test(verbLabel) ? "补语 C" : "受词 O"
+    });
+    index = end;
+  }
+}
+
+function findPhraseBoundary(tokens, start) {
+  let index = start;
+  while (
+    index < tokens.length &&
+    !isPunctuation(tokens[index]) &&
+    !COORDINATORS.has(lowerToken(tokens[index])) &&
+    !PREPOSITIONS.has(lowerToken(tokens[index])) &&
+    !CLAUSE_STARTERS.has(lowerToken(tokens[index])) &&
+    !isVerbLike(tokens, index)
+  ) {
+    index += 1;
+  }
+  return index > start ? index : start + 1;
+}
+
+function findNextBoundary(tokens, start) {
+  let index = start + 1;
+  while (index < tokens.length && !isPunctuation(tokens[index]) && !COORDINATORS.has(lowerToken(tokens[index]))) {
+    index += 1;
+  }
+  return index;
+}
+
+function isPunctuation(token) {
+  return token === "," || token === ";" || token === ":";
+}
+
+function lowerToken(token) {
+  return String(token || "").toLowerCase();
+}
+
+function joinTokens(tokens) {
+  return tokens.join(" ").replace(/\s+([,;:])/g, "$1").trim();
 }
 
 function isVerbBase(lower) {
-  return TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || ["use", "write", "study", "learn", "grow"].includes(lower);
+  return TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || ["use", "write", "study", "learn", "grow", "include", "includes", "describe", "describing", "give", "giving", "explain", "explaining", "understand", "guess", "underline", "decide", "point", "points", "keep", "keeps"].includes(lower);
 }
 
-function hasPrepositionBeforeVerb(words, index, firstVerbIndex) {
-  if (firstVerbIndex < 0) return false;
-  return words.slice(0, index).some((word) => PREPOSITIONS.has(word.toLowerCase()));
-}
-
-function hasRecentPreposition(words, index, firstVerbIndex) {
-  const start = Math.max(firstVerbIndex + 1, index - 4, 0);
-  return words.slice(start, index).some((word) => PREPOSITIONS.has(word.toLowerCase()));
+function isVerbLike(tokens, index) {
+  const lower = lowerToken(tokens[index]);
+  const next = lowerToken(tokens[index + 1]);
+  return MODALS.has(lower) || BE_FORMS.has(lower) || LINKING_VERBS.has(lower) || TRANSITIVE_VERBS.has(lower) || INTRANSITIVE_VERBS.has(lower) || (lower === "had" && next === "to");
 }
 
 function getTenseNote(item) {
@@ -1195,16 +1431,16 @@ function renderQuiz() {
 function buildQuizQuestions() {
   const items = getSentenceItems();
   const templates = [
-    { label: "主词", codes: ["S"] },
-    { label: "谓词动词", codes: ["Vt.", "Vi.", "Vl", "Aux", "Modal"] },
-    { label: "宾词或补语", codes: ["O", "C"] }
+    { label: "主词", match: (part) => part.label.includes("主词") },
+    { label: "谓词动词", match: (part) => /Vt|Vi|Vl|谓词|情态|Modal/.test(part.label) },
+    { label: "受词、补语或名词子句", match: (part) => /受词|补语|名词子句|N-clause/.test(part.label) }
   ];
 
   return templates.map((template, index) => {
     const item = items[index % items.length];
-    const annotated = getAnnotatedWords(item.sentence);
-    const answer = annotated.find((part) => template.codes.includes(part.code))?.word || annotated[0]?.word || "以上都不是";
-    const options = buildQuizOptions(answer, annotated.map((part) => part.word), index);
+    const structure = getStructureParts(item.sentence).filter((part) => !part.label.includes("标点") && !part.label.includes("连接词"));
+    const answer = structure.find(template.match)?.text || structure[0]?.text || "以上都不是";
+    const options = buildQuizOptions(answer, structure.map((part) => part.text), index);
 
     return {
       sentence: item.sentence,
@@ -1252,7 +1488,7 @@ function checkQuizAnswers() {
     "</ol>",
     "<p class=\"screenshot-reminder\">请把这一页截屏保留，并发给爸爸。</p>"
   ].join("");
-  updateSteps(6);
+  updateSteps(5);
   saveProgress("已完成语法选择题", { quizScore: score });
 }
 
@@ -1291,17 +1527,6 @@ function buildStudyContent() {
   els.studyContent.classList.remove("hidden");
   updateSteps(2);
   saveProgress("已生成学习内容");
-}
-
-function updateCopyStatus() {
-  if (els.copyCheck.checked && els.readCheck.checked) {
-    els.copyStatus.textContent = "很好，现在可以完成三题语法选择题。";
-    updateSteps(5);
-    if (state.enteredWords.length) saveProgress("已完成抄写与朗读");
-  } else {
-    els.copyStatus.textContent = "完成两项后，再进入语法选择题。";
-    if (state.enteredWords.length) saveProgress("学习进行中");
-  }
 }
 
 function splitStudentSentences(text) {
@@ -1409,7 +1634,7 @@ function checkSentences() {
     <h4>可参考的正确句子</h4>
     <ol>${models.map((sentence) => `<li>${sentence}</li>`).join("")}</ol>
   `;
-  updateSteps(7);
+  updateSteps(6);
   saveProgress("已检查造句", { sentenceCount: sentences.length, issueCount: issues.length });
 }
 
@@ -1424,8 +1649,6 @@ els.clearButton.addEventListener("click", () => {
   els.wordInput.value = "";
   els.wordInput.focus();
 });
-els.copyCheck.addEventListener("change", updateCopyStatus);
-els.readCheck.addEventListener("change", updateCopyStatus);
 els.rerollWordButton.addEventListener("click", () => {
   chooseChallengeWord();
   els.sentenceInput.value = "";
